@@ -356,7 +356,7 @@ void rgbd::callback(const sensor_msgs::msg::Image::ConstSharedPtr& color, const 
     }
 
     // const rclcpp::Time tp_1 = node_->now();
-    // const double timestamp = rclcpp::Time(color->header.stamp).seconds();
+    const double timestamp = rclcpp::Time(color->header.stamp).seconds();
 
     // input the current frame and estimate the camera pose
     auto cam_pose_wc = slam_->feed_RGBD_frame(colorcv, depthcv, timestamp, mask_);
