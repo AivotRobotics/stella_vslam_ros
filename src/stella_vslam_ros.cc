@@ -59,7 +59,7 @@ void system::publish_pose(const Eigen::Matrix4d& cam_pose_wc, const rclcpp::Time
     // Create odometry message and update it with current camera pose
     nav_msgs::msg::Odometry pose_msg;
     pose_msg.header.stamp = stamp;
-    pose_msg.header.frame_id = map_frame_;
+    pose_msg.header.frame_id = odom_frame_;
     pose_msg.child_frame_id = camera_frame_;
     pose_msg.pose.pose = tf2::toMsg(map_to_camera_affine * rot_ros_to_cv_map_frame_.inverse());
     pose_pub_->publish(pose_msg);
@@ -69,7 +69,7 @@ void system::publish_pose(const Eigen::Matrix4d& cam_pose_wc, const rclcpp::Time
         try {
             auto camera_to_odom = tf_->lookupTransform(
                 camera_optical_frame_, odom_frame_, tf2_ros::fromMsg(builtin_interfaces::msg::Time(stamp)),
-                tf2::durationFromSec(0.0));
+                tf2::durationFromSec(0.1));
             Eigen::Affine3d camera_to_odom_affine = tf2::transformToEigen(camera_to_odom.transform);
 
             geometry_msgs::msg::TransformStamped map_to_odom_msg;
@@ -355,21 +355,21 @@ void rgbd::callback(const sensor_msgs::msg::Image::ConstSharedPtr& color, const 
         cv::patchNaNs(depthcv);
     }
 
-    const rclcpp::Time tp_1 = node_->now();
-    const double timestamp = rclcpp::Time(color->header.stamp).seconds();
+    // const rclcpp::Time tp_1 = node_->now();
+    // const double timestamp = rclcpp::Time(color->header.stamp).seconds();
 
     // input the current frame and estimate the camera pose
     auto cam_pose_wc = slam_->feed_RGBD_frame(colorcv, depthcv, timestamp, mask_);
 
-    const rclcpp::Time tp_2 = node_->now();
-    const double track_time = (tp_2 - tp_1).seconds();
+    // const rclcpp::Time tp_2 = node_->now();
+    // const double track_time = (tp_2 - tp_1).seconds();
 
     // track time in seconds
-    track_times_.push_back(track_time);
+    //track_times_.push_back(track_time);
 
     if (cam_pose_wc) {
         publish_pose(*cam_pose_wc, color->header.stamp);
-    }
+        }
     if (publish_keyframes_) {
         publish_keyframes(color->header.stamp);
     }

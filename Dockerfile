@@ -136,6 +136,7 @@ RUN set -x && \
     ros-${ROS_DISTRO}-image-transport \
     ros-${ROS_DISTRO}-cv-bridge \
     ros-${ROS_DISTRO}-rosbag2-storage-mcap \
+    ros-${ROS_DISTRO}-robot-localization \
     python3-pip \
     python3-colcon-common-extensions && \
   pip3 install -U \

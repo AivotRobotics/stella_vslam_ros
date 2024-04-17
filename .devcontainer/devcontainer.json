@@ -1,0 +1,36 @@
+{
+    "name": "Stella VSLAM ROS2 Wrapper",
+    "image": "stella-vslam-ros2",
+    "workspaceFolder": "/ros2_ws",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/ros2_ws/src/stella_vslam_ros,type=bind,consistency=cached",
+    "privileged": true,
+    "customizations": {
+      "vscode": {
+        "extensions":[
+          "ms-vscode.cpptools",
+          "ms-vscode.cpptools-themes",
+          "ms-vscode.cpptools-extension-pack",
+          "twxs.cmake",
+          "donjayamanne.python-extension-pack",
+          "eamodio.gitlens",
+          "ms-iot.vscode-ros"
+        ]
+      }
+    },
+    "containerEnv": {
+      "DISPLAY": "unix:0",
+      "NVIDIA_DRIVER_CAPABILITIES": "all"
+    },
+    "runArgs": [
+      "--net=host",
+      "-e", "DISPLAY=${env:DISPLAY}",
+      "--gpus=all"
+    ],
+    "mounts": [
+      "source=${localEnv:HOME}/WorkingData,target=/WorkingData,type=bind,consistency=cached",
+      "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind,consistency=cached",
+      "source=/dev,target=/dev,type=bind,consistency=consistent"
+    ],
+    "remoteUser": "igor",
+    "userEnvProbe": "interactiveShell"
+  }
