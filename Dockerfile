@@ -155,7 +155,7 @@ RUN set -x && \
     -DUSE_STACK_TRACE_LOGGER=ON"
 
 RUN set -x && \
-  sh -c "echo '#'\!'/bin/bash\nset -e\nsource /opt/ros/${ROS_DISTRO}/setup.bash\nsource /ros2_ws/install/setup.bash\nexec \"\$@\"' > /ros_entrypoint.sh" && \
+  sh -c "echo '#'\!'/bin/bash\n\nsource /opt/ros/${ROS_DISTRO}/setup.bash\nsource /ros2_ws/install/setup.bash\nexec \"\$@\"' > /ros_entrypoint.sh" && \
   chmod u+x /ros_entrypoint.sh
 
 ENTRYPOINT ["/ros_entrypoint.sh"]
