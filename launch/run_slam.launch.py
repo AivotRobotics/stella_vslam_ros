@@ -30,15 +30,36 @@ def generate_launch_description():
             choices=['false', 'true'],
             description='Publishes odom TF based on camera position'
         ),
+        DeclareLaunchArgument(
+            name='publish_tf',
+            default_value='true',
+            choices=['false', 'true'],
+            description='Publishes map->odom TF based on camera position'
+        ),
+        DeclareLaunchArgument(
+            name='odom2d',
+            default_value='true',
+            choices=['false', 'true'],
+            description='Published map->odom TF is on XY plane'
+        ),
+        DeclareLaunchArgument(
+            name='use_exact_time',
+            default_value='false',
+            choices=['false', 'true'],
+            description=''
+        ),
     ]
 
     use_sim_time = LaunchConfiguration('use_sim_time')
     namespace = LaunchConfiguration('namespace')
     config_file = LaunchConfiguration('config')
-    orb_vocab_file = PathJoinSubstitution(['/WorkingData/Stella/', 'orb_vocab.fbow'])
+    publish_tf = LaunchConfiguration("publish_tf")
+    odom2d = LaunchConfiguration('odom2d')
+    use_exact_time = LaunchConfiguration('use_exact_time')
     
     stella_slam_ros_pkg_share = FindPackageShare('stella_vslam_ros')
-    
+
+    orb_vocab_file = PathJoinSubstitution(['/WorkingData/Stella/', 'orb_vocab.fbow'])
     localization_param_file=PathJoinSubstitution([stella_slam_ros_pkg_share, 'config', 'localization.yaml'])
     
     slam_group = GroupAction([
@@ -54,14 +75,17 @@ def generate_launch_description():
             ],
             parameters=[
                 {'use_sim_time': use_sim_time},
-                {'odom2d': True},
-                {'camera_frame': 'camnav_link'}
+                {'odom2d': odom2d},
+                {'camera_frame': 'camnav_link'},
+                {'publish_tf': publish_tf},
+                {'use_exact_time': use_exact_time},
             ],
             remappings=[
                 ('/tf', 'tf'),
                 ('/tf_static', 'tf_static'),
                 ('camera/color/image_raw', 'sensors/camnav/color/image_raw'),
-                ('camera/depth/image_raw', 'sensors/camnav/depth/image_rect_raw'),
+                # ('camera/depth/image_raw', 'sensors/camnav/depth/image_rect_raw'),
+                ('camera/depth/image_raw', 'sensors/camnav/aligned_depth_to_color/image_raw'),
             ]
         ),
         Node(
