@@ -59,7 +59,7 @@ void system::publish_pose(const Eigen::Matrix4d& cam_pose_wc, const rclcpp::Time
     // Create odometry message and update it with current camera pose
     nav_msgs::msg::Odometry pose_msg;
     pose_msg.header.stamp = stamp;
-    pose_msg.header.frame_id = odom_frame_;
+    pose_msg.header.frame_id = map_frame_;
     pose_msg.child_frame_id = camera_frame_;
     pose_msg.pose.pose = tf2::toMsg(map_to_camera_affine * rot_ros_to_cv_map_frame_.inverse());
     pose_pub_->publish(pose_msg);

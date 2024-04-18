@@ -4,7 +4,7 @@ from launch.substitutions import PathJoinSubstitution, LaunchConfiguration
 from launch_ros.actions import Node, PushRosNamespace, SetRemap
 from launch_ros.substitutions import FindPackageShare
 from launch_ros.parameter_descriptions import ParameterFile
-
+from launch.conditions import IfCondition
 
 def generate_launch_description():
     declared_arguments = [
@@ -23,6 +23,12 @@ def generate_launch_description():
             name='config',
             default_value='/WorkingData/Stella/config.yaml',
             description='Namespace to run stella slam nodes in'
+        ),
+        DeclareLaunchArgument(
+            name='enable_visual_odom',
+            default_value='false',
+            choices=['false', 'true'],
+            description='Publishes odom TF based on camera position'
         ),
     ]
 
@@ -72,7 +78,8 @@ def generate_launch_description():
               ('/diagnostics', 'sensors/diagnostics'),
               ('/tf', 'tf'),
               ('/tf_static', 'tf_static'),
-            ]
+            ],
+            condition=IfCondition(LaunchConfiguration('enable_visual_odom'))
         )
     ])
 
