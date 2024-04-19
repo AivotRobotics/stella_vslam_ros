@@ -30,6 +30,7 @@ public:
     system(const std::shared_ptr<stella_vslam::system>& slam,
            rclcpp::Node* node,
            const std::string& mask_img_path);
+    virtual ~system() = default;
     void publish_pose(const Eigen::Matrix4d& cam_pose_wc, const rclcpp::Time& stamp);
     void publish_keyframes(const rclcpp::Time& stamp);
     void setParams();
@@ -142,6 +143,19 @@ public:
     using ExactTimeSyncPolicy = message_filters::sync_policies::ExactTime<sensor_msgs::msg::Image, sensor_msgs::msg::Image>;
     std::shared_ptr<ExactTimeSyncPolicy::Sync> exact_time_sync_;
     bool use_exact_time_;
+};
+
+class realsense : public system {
+public:
+    realsense(const std::shared_ptr<stella_vslam::system>& slam,
+         rclcpp::Node* node,
+         const std::string& mask_img_path);
+    ~realsense() override;
+
+private:
+    void worker();
+
+    std::thread m_workerThd;
 };
 
 } // namespace stella_vslam_ros

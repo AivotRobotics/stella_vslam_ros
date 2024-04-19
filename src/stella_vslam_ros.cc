@@ -11,6 +11,9 @@
 #include <opencv2/imgcodecs.hpp>
 #include <Eigen/Geometry>
 
+#include <librealsense2/rs.hpp>
+#include <unsupported/Eigen/EulerAngles>
+
 namespace {
 Eigen::Affine3d project_to_xy_plane(const Eigen::Affine3d& affine) {
     Eigen::Matrix4d mat = affine.matrix();
@@ -373,6 +376,90 @@ void rgbd::callback(const sensor_msgs::msg::Image::ConstSharedPtr& color, const 
     if (publish_keyframes_) {
         publish_keyframes(color->header.stamp);
     }
+}
+
+realsense::realsense(const std::shared_ptr<stella_vslam::system>& slam, rclcpp::Node* node, const std::string& mask_img_path) 
+    : system(slam, node, mask_img_path)
+{
+    camera_optical_frame_ = camera_frame_;
+    m_workerThd = std::thread(&realsense::worker, this);
+}
+
+realsense::~realsense() {
+    m_workerThd.join();
+}
+
+void realsense::worker() {
+
+    auto rs_device_id = node_->declare_parameter("rs_device_id", rclcpp::ParameterValue("")).get<rclcpp::PARAMETER_STRING>();
+    if (rs_device_id.empty()) {
+        RCLCPP_ERROR(node_->get_logger(), "No device serial number specified. Will use any found realsense camera");
+    } else {
+        if (rs_device_id.front() == '_') {
+            rs_device_id = rs_device_id.substr(1);
+        }
+    }
+
+    rs2::align rsAlign (RS2_STREAM_COLOR);
+    rs2::context rsContext;
+    rs2::pipeline rsPipe (rsContext);
+
+    int rsFps = 0;
+    rs2::config rsConfig;
+    rsConfig.enable_device (rs_device_id);
+    rsConfig.enable_stream (RS2_STREAM_COLOR, RS2_FORMAT_BGR8, rsFps);
+    rsConfig.enable_stream (RS2_STREAM_DEPTH, RS2_FORMAT_Z16, rsFps);
+ 
+    rs2::pipeline_profile rsProfile = rsPipe.start (rsConfig);
+    auto rsSensor = rsProfile.get_device ().first <rs2::depth_sensor> ();
+    auto color_stream = rsProfile.get_stream (RS2_STREAM_COLOR).as <rs2::video_stream_profile> ();
+ 
+    rs2_intrinsics cIntr = color_stream.get_intrinsics ();
+    RCLCPP_INFO(node_->get_logger(), "Init camera done. Rows: %d. Cols: %d. Fx: %f. Fy: %f. Cx: %f. Cy: %f\n",
+            color_stream.height (), color_stream.width (), cIntr.fx, cIntr.fy, cIntr.ppx, cIntr.ppy);
+ 
+    // It takes first few frames to auto adjust brightness.
+    for (size_t fIter = 0; fIter < 32; ++ fIter) {
+        auto frameSet = rsPipe.wait_for_frames (5000);
+    }
+
+    while (!slam_->terminate_is_requested()) {
+        auto frameSet = rsPipe.wait_for_frames (1000);
+        double time_stamp = frameSet.get_color_frame().get_timestamp()/1000.0;
+ 
+        rs2::frameset processed_frameset = rsAlign.process (frameSet);
+        rs2::depth_frame depth_frame = processed_frameset.get_depth_frame ();
+        rs2::video_frame color_frame = processed_frameset.get_color_frame ();
+ 
+        int camRows = color_frame.get_height ();
+        int camCols = color_frame.get_width  ();
+        cv::Size camSz (camCols, camRows);
+        if (depth_frame.get_height () != camRows && depth_frame.get_width () != camCols) {
+            RCLCPP_ERROR_STREAM_THROTTLE(node_->get_logger(), *node_->get_clock(), 1000, "Depth - Color frames resolution mismatch ");
+        }
+        cv::Mat rawClr (camSz, CV_8UC3, (void*) color_frame.get_data (), cv::Mat::AUTO_STEP);
+        cv::Mat rawDpt (camSz, CV_16UC1, (void*) depth_frame.get_data (), cv::Mat::AUTO_STEP);
+        cv::Mat rgb_img = rawClr.clone();
+        cv::Mat depth_img = rawDpt.clone();
+
+        auto resPose = slam_->feed_RGBD_frame(rgb_img, depth_img, time_stamp);
+ 
+        Eigen::Affine3d camPose;
+        camPose.matrix() = (* resPose);
+
+        // Eigen::EulerAngles<double, Eigen::EulerSystemZYX> eul(camPose.rotation());
+        // char str [256];
+        // snprintf (str, 256, "Aff Ang X: %.1f. Y: %.1f. Z: %.1f . Pos: X: %.3f. Y: %.3f. Z: %.3f",
+        //           eul.angles()[2]*180.0/M_PI, eul.angles()[1]*180.0/M_PI, eul.angles()[0]*180.0/M_PI,
+        //           camPose.translation ()[0], camPose.translation ()[1], camPose.translation ()[2]);
+        // RCLCPP_INFO(node_->get_logger(), "Frame TS: %f. AFF: %s\n", time_stamp, str);
+
+        if (publish_tf_) {
+            publish_pose(*resPose, node_->now());
+        }
+    }
+
+    rsPipe.stop ();
 }
 
 } // namespace stella_vslam_ros

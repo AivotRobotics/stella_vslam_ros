@@ -48,7 +48,13 @@ def generate_launch_description():
             choices=['false', 'true'],
             description=''
         ),
+        DeclareLaunchArgument(
+            name='params_file',
+            default_value=PathJoinSubstitution([FindPackageShare('stella_vslam_ros'), 'config', 'stella-vslam.yaml']),
+            description=''
+        ),
     ]
+    
 
     use_sim_time = LaunchConfiguration('use_sim_time')
     namespace = LaunchConfiguration('namespace')
@@ -74,11 +80,8 @@ def generate_launch_description():
                 ['-v', orb_vocab_file]
             ],
             parameters=[
-                {'use_sim_time': use_sim_time},
-                {'odom2d': odom2d},
-                {'camera_frame': 'camnav_link'},
-                {'publish_tf': publish_tf},
-                {'use_exact_time': use_exact_time},
+                ParameterFile(param_file=LaunchConfiguration('params_file'), allow_substs=True),
+                {'use_sim_time': use_sim_time}, 
             ],
             remappings=[
                 ('/tf', 'tf'),

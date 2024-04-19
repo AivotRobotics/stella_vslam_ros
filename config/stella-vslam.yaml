@@ -1,0 +1,8 @@
+/**:
+  ros__parameters:
+    publish_tf: true
+    odom2d: true
+    use_exact_time: true
+    camera_frame: camnav_link
+    use_direct_realsense: true
+    rs_device_id: _046322250516
