@@ -24,6 +24,8 @@
 #include <sensor_msgs/msg/image.hpp>
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 
+#include <librealsense2/rs.hpp>
+
 namespace stella_vslam_ros {
 class system {
 public:
@@ -152,10 +154,14 @@ public:
          const std::string& mask_img_path);
     ~realsense() override;
 
+public:
+    void ProcPoints(Eigen::Affine3d camPose, rs2_intrinsics cIntr, cv::Mat depthMap);
+
 private:
     void worker();
-
+    
     std::thread m_workerThd;
+    std::atomic<bool> m_isProcPointsRunning;
 };
 
 } // namespace stella_vslam_ros

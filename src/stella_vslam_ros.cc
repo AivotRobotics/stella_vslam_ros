@@ -7,12 +7,12 @@
 #include <tf2_eigen/tf2_eigen.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <geometry_msgs/msg/transform_stamped.h>
-#include <opencv2/core/core.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <Eigen/Geometry>
 
-#include <librealsense2/rs.hpp>
 #include <unsupported/Eigen/EulerAngles>
+
+#include "owned_camera.h"
 
 namespace {
 Eigen::Affine3d project_to_xy_plane(const Eigen::Affine3d& affine) {
@@ -23,6 +23,16 @@ Eigen::Affine3d project_to_xy_plane(const Eigen::Affine3d& affine) {
     double ry = mat(1, 0);
     double yaw = std::atan2(ry, rx);
     return trans * Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ());
+}
+
+std::string aff_to_str (const Eigen::Affine3d & affine) {
+    char str [256];
+    Eigen::EulerAngles<double, Eigen::EulerSystemZYX> eul(affine.rotation());
+    Eigen::Vector3d pos = affine.translation();
+    snprintf (str, 256, "Aff Ang X: %.1f. Y: %.1f. Z: %.1f . Pos: X: %.3f. Y: %.3f. Z: %.3f",
+              eul.angles()[2]*180.0/M_PI, eul.angles()[1]*180.0/M_PI, eul.angles()[0]*180.0/M_PI,
+              pos[0], pos[1], pos[2]);
+    return std::string (str);
 }
 } // namespace
 
@@ -383,14 +393,26 @@ realsense::realsense(const std::shared_ptr<stella_vslam::system>& slam, rclcpp::
 {
     camera_optical_frame_ = camera_frame_;
     m_workerThd = std::thread(&realsense::worker, this);
+    m_isProcPointsRunning.store (false);
 }
 
 realsense::~realsense() {
     m_workerThd.join();
 }
 
+void realsense::ProcPoints (Eigen::Affine3d camPose, rs2_intrinsics cIntr, cv::Mat depthMap) {
+    owned_camera::ProcPoints (camPose, cIntr, depthMap);
+    m_isProcPointsRunning.store (false);
+}
+    
 void realsense::worker() {
 
+    Eigen::Vector3d bcPos (-0.0267, 0.2336, 0.7766);
+    Eigen::Vector3d bcRot(0, -0.2618, 0);
+    Eigen::Affine3d baseCamPose (Eigen::Affine3d::Identity());
+    baseCamPose.translation() = bcPos;
+    baseCamPose.linear() = Eigen::EulerAngles<double, Eigen::EulerSystemZYX>(bcRot[2], bcRot[1], bcRot[0]).toRotationMatrix();
+    
     auto rs_device_id = node_->declare_parameter("rs_device_id", rclcpp::ParameterValue("")).get<rclcpp::PARAMETER_STRING>();
     if (rs_device_id.empty()) {
         RCLCPP_ERROR(node_->get_logger(), "No device serial number specified. Will use any found realsense camera");
@@ -404,19 +426,21 @@ void realsense::worker() {
     rs2::context rsContext;
     rs2::pipeline rsPipe (rsContext);
 
-    int rsFps = 0;
+    int rsFps = 15;
+    int rsWidth = 640;
+    int rsHeight = 480;
     rs2::config rsConfig;
     rsConfig.enable_device (rs_device_id);
-    rsConfig.enable_stream (RS2_STREAM_COLOR, RS2_FORMAT_BGR8, rsFps);
-    rsConfig.enable_stream (RS2_STREAM_DEPTH, RS2_FORMAT_Z16, rsFps);
+    rsConfig.enable_stream (RS2_STREAM_COLOR, rsWidth, rsHeight, RS2_FORMAT_BGR8, rsFps);
+    rsConfig.enable_stream (RS2_STREAM_DEPTH, rsWidth, rsHeight, RS2_FORMAT_Z16, rsFps);
  
     rs2::pipeline_profile rsProfile = rsPipe.start (rsConfig);
     auto rsSensor = rsProfile.get_device ().first <rs2::depth_sensor> ();
     auto color_stream = rsProfile.get_stream (RS2_STREAM_COLOR).as <rs2::video_stream_profile> ();
  
     rs2_intrinsics cIntr = color_stream.get_intrinsics ();
-    RCLCPP_INFO(node_->get_logger(), "Init camera done. Rows: %d. Cols: %d. Fx: %f. Fy: %f. Cx: %f. Cy: %f\n",
-            color_stream.height (), color_stream.width (), cIntr.fx, cIntr.fy, cIntr.ppx, cIntr.ppy);
+    RCLCPP_INFO(node_->get_logger(), "Init camera done. Rows: %d. Cols: %d. Fx: %f. Fy: %f. Cx: %f. Cy: %f. FPS: %d. BaseCamPose %s",
+                color_stream.height (), color_stream.width (), cIntr.fx, cIntr.fy, cIntr.ppx, cIntr.ppy, rsFps, aff_to_str (baseCamPose).c_str());
  
     // It takes first few frames to auto adjust brightness.
     for (size_t fIter = 0; fIter < 32; ++ fIter) {
@@ -446,16 +470,16 @@ void realsense::worker() {
  
         Eigen::Affine3d camPose;
         camPose.matrix() = (* resPose);
-
-        // Eigen::EulerAngles<double, Eigen::EulerSystemZYX> eul(camPose.rotation());
-        // char str [256];
-        // snprintf (str, 256, "Aff Ang X: %.1f. Y: %.1f. Z: %.1f . Pos: X: %.3f. Y: %.3f. Z: %.3f",
-        //           eul.angles()[2]*180.0/M_PI, eul.angles()[1]*180.0/M_PI, eul.angles()[0]*180.0/M_PI,
-        //           camPose.translation ()[0], camPose.translation ()[1], camPose.translation ()[2]);
-        // RCLCPP_INFO(node_->get_logger(), "Frame TS: %f. AFF: %s\n", time_stamp, str);
+        // RCLCPP_INFO(node_->get_logger(), "Frame TS: %f. AFF: %s", time_stamp, aff_to_str (camPose).c_str());
 
         if (publish_tf_) {
             publish_pose(*resPose, node_->now());
+        }
+
+        if (false) { // ! m_isProcPointsRunning.load()) {
+            m_isProcPointsRunning.store (true);
+            std::thread prcThd (& stella_vslam_ros::realsense::ProcPoints, this, camPose, cIntr, depth_img);
+            prcThd.detach();
         }
     }
 

@@ -190,6 +190,8 @@ if(iridescence_viewer_FOUND)
     message(STATUS "Viewer for examples: IridescenceViewer")
 endif()
 
+find_package(PCL 1.14 REQUIRED)
+include_directories(${PCL_INCLUDE_DIRS})
 
 #########
 # Build #
@@ -198,7 +200,7 @@ endif()
 add_subdirectory(src)
 
 add_library(stella_vslam_ros_system SHARED
-  src/system.cc src/stella_vslam_ros.cc
+  src/system.cc src/stella_vslam_ros.cc src/owned_camera.cc
 )
 if(pangolin_viewer_FOUND)
     # set macro flag

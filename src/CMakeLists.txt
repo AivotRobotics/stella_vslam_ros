@@ -1,8 +1,8 @@
 set(EXECUTABLE_TARGETS "")
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
-add_executable(run_slam run_slam.cc stella_vslam_ros.cc)
-add_executable(run_slam_offline run_slam_offline.cc stella_vslam_ros.cc)
+add_executable(run_slam run_slam.cc stella_vslam_ros.cc owned_camera.cc)
+add_executable(run_slam_offline run_slam_offline.cc stella_vslam_ros.cc owned_camera.cc)
 list(APPEND EXECUTABLE_TARGETS run_slam run_slam_offline)
 
 foreach(EXECUTABLE_TARGET IN LISTS EXECUTABLE_TARGETS)
@@ -61,7 +61,7 @@ foreach(EXECUTABLE_TARGET IN LISTS EXECUTABLE_TARGETS)
     target_include_directories(${EXECUTABLE_TARGET}
                                PRIVATE ${rclcpp_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS})
     target_link_libraries(${EXECUTABLE_TARGET}
-                          PRIVATE stella_vslam::stella_vslam ${rclcpp_LIBRARIES} ${OpenCV_LIBRARIES} ${realsense2_LIBRARY})
+                          PRIVATE stella_vslam::stella_vslam ${rclcpp_LIBRARIES} ${OpenCV_LIBRARIES} ${realsense2_LIBRARY} ${PCL_LIBRARIES})
     ament_target_dependencies(${EXECUTABLE_TARGET}
                               PUBLIC
                               rclcpp
