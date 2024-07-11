@@ -86,9 +86,9 @@ def generate_launch_description():
             remappings=[
                 ('/tf', 'tf'),
                 ('/tf_static', 'tf_static'),
-                ('camera/image_raw', 'sensors/camnav/color/image_raw'),
-                ('camera/color/image_raw', 'sensors/camnav/color/image_raw'),
-                ('camera/depth/image_raw', 'sensors/camnav/aligned_depth_to_color/image_raw'),
+                ('camera/image_raw', 'camnav/color/image_raw'),
+                ('camera/color/image_raw', 'camnav/color/image_raw'),
+                ('camera/depth/image_raw', 'camnav/aligned_depth_to_color/image_raw'),
             ]
         ),
         Node(
