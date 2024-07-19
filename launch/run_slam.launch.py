@@ -49,6 +49,11 @@ def generate_launch_description():
             description=''
         ),
         DeclareLaunchArgument(
+            name='vocab_file',
+            default_value='/Models/orb_vocab.fbow',
+            description='Features extraction vocabulary file',
+        ),
+        DeclareLaunchArgument(
             name='params_file',
             default_value=PathJoinSubstitution([FindPackageShare('stella_vslam_ros'), 'config', 'stella-vslam.yaml']),
             description=''
@@ -65,7 +70,6 @@ def generate_launch_description():
     
     stella_slam_ros_pkg_share = FindPackageShare('stella_vslam_ros')
 
-    orb_vocab_file = PathJoinSubstitution(['/WorkingData/Stella/', 'orb_vocab.fbow'])
     localization_param_file=PathJoinSubstitution([stella_slam_ros_pkg_share, 'config', 'localization.yaml'])
     
     slam_group = GroupAction([
@@ -77,7 +81,7 @@ def generate_launch_description():
             output='screen',
             arguments=[
                 ['-c', config_file],
-                ['-v', orb_vocab_file]
+                ['-v', LaunchConfiguration('vocab_file')]
             ],
             parameters=[
                 ParameterFile(param_file=LaunchConfiguration('params_file'), allow_substs=True),
