@@ -7,12 +7,16 @@
 #include <tf2_eigen/tf2_eigen.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <geometry_msgs/msg/transform_stamped.h>
+#include <opencv2/core/core.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <Eigen/Geometry>
 
 #include <unsupported/Eigen/EulerAngles>
 
 #include "owned_camera.h"
+
+int fNum = 0;
+int lfNum = -100;
 
 namespace {
 Eigen::Affine3d project_to_xy_plane(const Eigen::Affine3d& affine) {
@@ -58,7 +62,7 @@ system::system(const std::shared_ptr<stella_vslam::system>& slam,
                                 -1, 0, 0,
                                 0, -1, 0)
                                    .finished();
-}
+    }
 
 void system::publish_pose(const Eigen::Matrix4d& cam_pose_wc, const rclcpp::Time& stamp) {
     // Extract rotation matrix and translation vector from
@@ -68,7 +72,10 @@ void system::publish_pose(const Eigen::Matrix4d& cam_pose_wc, const rclcpp::Time
 
     // Transform map frame from CV coordinate system to ROS coordinate system
     map_to_camera_affine.prerotate(rot_ros_to_cv_map_frame_);
-
+    if ((fNum ++ % 12) == 0) {
+        RCLCPP_INFO (node_->get_logger(), "%d - %s", fNum, aff_to_str(map_to_camera_affine).c_str());
+    }
+    
     // Create odometry message and update it with current camera pose
     nav_msgs::msg::Odometry pose_msg;
     pose_msg.header.stamp = stamp;
@@ -90,10 +97,13 @@ void system::publish_pose(const Eigen::Matrix4d& cam_pose_wc, const rclcpp::Time
                 Eigen::Affine3d map_to_camera_affine_2d = project_to_xy_plane(map_to_camera_affine * rot_ros_to_cv_map_frame_.inverse()) * rot_ros_to_cv_map_frame_;
                 Eigen::Affine3d camera_to_odom_affine_2d = (project_to_xy_plane(camera_to_odom_affine.inverse() * rot_ros_to_cv_map_frame_.inverse()) * rot_ros_to_cv_map_frame_).inverse();
                 Eigen::Affine3d map_to_odom_affine_2d = map_to_camera_affine_2d * camera_to_odom_affine_2d;
+                // map_to_odom_affine_2d(2, 3) = -0.001;
                 map_to_odom_msg = tf2::eigenToTransform(map_to_odom_affine_2d);
             }
             else {
-                map_to_odom_msg = tf2::eigenToTransform(map_to_camera_affine * camera_to_odom_affine);
+                Eigen::Affine3d map_to_odom_affine = map_to_camera_affine * camera_to_odom_affine;
+                // map_to_odom_affine(2, 3) = -0.001;
+                map_to_odom_msg = tf2::eigenToTransform(map_to_odom_affine);
             }
             tf2::TimePoint transform_timestamp = tf2_ros::fromMsg(stamp) + tf2::durationFromSec(transform_tolerance_);
             map_to_odom_msg.header.stamp = tf2_ros::toMsg(transform_timestamp);
@@ -390,6 +400,8 @@ void rgbd::callback(const sensor_msgs::msg::Image::ConstSharedPtr& color, const 
 
 realsense::realsense(const std::shared_ptr<stella_vslam::system>& slam, rclcpp::Node* node, const std::string& mask_img_path) 
     : system(slam, node, mask_img_path)
+    , points_pub_(node_->create_publisher<sensor_msgs::msg::PointCloud2>("/spectra/sensors/camnav/depth/color/points", 1))
+
 {
     camera_optical_frame_ = camera_frame_;
     m_workerThd = std::thread(&realsense::worker, this);
@@ -400,19 +412,15 @@ realsense::~realsense() {
     m_workerThd.join();
 }
 
-void realsense::ProcPoints (Eigen::Affine3d camPose, rs2_intrinsics cIntr, cv::Mat depthMap) {
-    owned_camera::ProcPoints (camPose, cIntr, depthMap);
+void realsense::ProcPoints (Eigen::Matrix4d resPose, rs2_intrinsics cIntr, cv::Mat depthMap, rclcpp::Time nodeTime) {
+    Eigen::Affine3d camPose;
+    camPose.matrix() = resPose;
+    owned_camera::ProcPoints (camPose, cIntr, depthMap, points_pub_, nodeTime, map_frame_);
     m_isProcPointsRunning.store (false);
 }
     
 void realsense::worker() {
 
-    Eigen::Vector3d bcPos (-0.0267, 0.2336, 0.7766);
-    Eigen::Vector3d bcRot(0, -0.2618, 0);
-    Eigen::Affine3d baseCamPose (Eigen::Affine3d::Identity());
-    baseCamPose.translation() = bcPos;
-    baseCamPose.linear() = Eigen::EulerAngles<double, Eigen::EulerSystemZYX>(bcRot[2], bcRot[1], bcRot[0]).toRotationMatrix();
-    
     auto rs_device_id = node_->declare_parameter("rs_device_id", rclcpp::ParameterValue("")).get<rclcpp::PARAMETER_STRING>();
     if (rs_device_id.empty()) {
         RCLCPP_ERROR(node_->get_logger(), "No device serial number specified. Will use any found realsense camera");
@@ -426,7 +434,7 @@ void realsense::worker() {
     rs2::context rsContext;
     rs2::pipeline rsPipe (rsContext);
 
-    int rsFps = 15;
+    int rsFps = 30;
     int rsWidth = 640;
     int rsHeight = 480;
     rs2::config rsConfig;
@@ -439,8 +447,8 @@ void realsense::worker() {
     auto color_stream = rsProfile.get_stream (RS2_STREAM_COLOR).as <rs2::video_stream_profile> ();
  
     rs2_intrinsics cIntr = color_stream.get_intrinsics ();
-    RCLCPP_INFO(node_->get_logger(), "Init camera done. Rows: %d. Cols: %d. Fx: %f. Fy: %f. Cx: %f. Cy: %f. FPS: %d. BaseCamPose %s",
-                color_stream.height (), color_stream.width (), cIntr.fx, cIntr.fy, cIntr.ppx, cIntr.ppy, rsFps, aff_to_str (baseCamPose).c_str());
+    RCLCPP_INFO(node_->get_logger(), "Init camera done. Rows: %d. Cols: %d. Fx: %f. Fy: %f. Cx: %f. Cy: %f. FPS: %d.",
+                color_stream.height (), color_stream.width (), cIntr.fx, cIntr.fy, cIntr.ppx, cIntr.ppy, rsFps);
  
     // It takes first few frames to auto adjust brightness.
     for (size_t fIter = 0; fIter < 32; ++ fIter) {
@@ -450,7 +458,8 @@ void realsense::worker() {
     while (!slam_->terminate_is_requested()) {
         auto frameSet = rsPipe.wait_for_frames (1000);
         double time_stamp = frameSet.get_color_frame().get_timestamp()/1000.0;
- 
+        rclcpp::Time nodeTime = node_->now();
+        
         rs2::frameset processed_frameset = rsAlign.process (frameSet);
         rs2::depth_frame depth_frame = processed_frameset.get_depth_frame ();
         rs2::video_frame color_frame = processed_frameset.get_color_frame ();
@@ -468,17 +477,14 @@ void realsense::worker() {
 
         auto resPose = slam_->feed_RGBD_frame(rgb_img, depth_img, time_stamp);
  
-        Eigen::Affine3d camPose;
-        camPose.matrix() = (* resPose);
-        // RCLCPP_INFO(node_->get_logger(), "Frame TS: %f. AFF: %s", time_stamp, aff_to_str (camPose).c_str());
-
         if (publish_tf_) {
-            publish_pose(*resPose, node_->now());
+            publish_pose(*resPose, nodeTime);
         }
 
-        if (false) { // ! m_isProcPointsRunning.load()) {
+        if (! m_isProcPointsRunning.load() && (fNum > lfNum + 10)) {
             m_isProcPointsRunning.store (true);
-            std::thread prcThd (& stella_vslam_ros::realsense::ProcPoints, this, camPose, cIntr, depth_img);
+            lfNum = fNum;
+            std::thread prcThd (& stella_vslam_ros::realsense::ProcPoints, this, *resPose, cIntr, depth_img, nodeTime);
             prcThd.detach();
         }
     }

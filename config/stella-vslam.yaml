@@ -5,4 +5,4 @@
     use_exact_time: true
     camera_frame: camnav_link
     use_direct_realsense: true
-    rs_device_id: _046322250516
+    rs_device_id: _213622300228

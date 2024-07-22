@@ -23,6 +23,7 @@
 #include <opencv2/core/core.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
 
 #include <librealsense2/rs.hpp>
 
@@ -155,13 +156,15 @@ public:
     ~realsense() override;
 
 public:
-    void ProcPoints(Eigen::Affine3d camPose, rs2_intrinsics cIntr, cv::Mat depthMap);
+    void ProcPoints(Eigen::Matrix4d resPose, rs2_intrinsics cIntr, cv::Mat depthMap, rclcpp::Time nodeTime);
 
 private:
     void worker();
     
     std::thread m_workerThd;
+
     std::atomic<bool> m_isProcPointsRunning;
+    std::shared_ptr<rclcpp::Publisher<sensor_msgs::msg::PointCloud2>> points_pub_;
 };
 
 } // namespace stella_vslam_ros
