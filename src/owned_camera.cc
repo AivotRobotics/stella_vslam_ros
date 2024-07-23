@@ -24,6 +24,7 @@ const float MapVoxLen = 0.1;
 const float MapLowRow = -50.0;
 const float MapLowCol = -50.0;
 const float MinObstacleHeight = 0.1;
+const float ClearanceHeight = 1.75;
 const int MinVoxPts = 5;
 
 // Global-Map stores the maximum height across all the points in the
@@ -141,19 +142,30 @@ void WriteLiveMap (const std::vector <cv::Vec3f> & pts) {
         if (r < 0 || c < 0 || r >= MapNumRows || c >= MapNumCols) {
             continue;
         }
-        
-        ++ currMapCount.at <int> (r, c);
 
-        bool hasCurrUpdate = (std::isnan (currMap.at <float> (r,c)) || currMap.at <float> (r,c) < pt[2]);
-        bool hasGlobalUpdate = (currMapCount.at <int> (r, c) == MinVoxPts || (currMapCount.at <int> (r, c) > MinVoxPts && hasCurrUpdate));
-        
+        float & currVal = currMap.at <float> (r,c);
+        int & currCnt = currMapCount.at <int> (r, c);
+        ++ currCnt;
+
+        // Don't use the point which are above the height of the robot
+        // for updating the floor map. Update the current value with
+        // the highest point.
+        //
+        bool hasCurrUpdate = (pt[2] < ClearanceHeight && (std::isnan (currVal) || currVal < pt[2]));
         if (hasCurrUpdate) {
-            currMap.at <float> (r, c) = pt[2];
+            currVal = pt[2];
         }
 
+        // Update the global map with the curr value if the current
+        // value is valid and the number of pixels crossed the
+        // threshold (current value wouldn't have been stored in
+        // global until now) or the current value itself was updated
+        // after the number of pixels crossed the threshold.
+        //
+        bool hasGlobalUpdate = (!std::isnan(currVal) && (currCnt == MinVoxPts || (currCnt > MinVoxPts && hasCurrUpdate)));
         if (hasGlobalUpdate) {
-            globalMap.at <float> (r, c) = currMap.at <float> (r, c);
-            liveMap.at <unsigned char> (r, c) = ((currMap.at <float> (r, c) < MinObstacleHeight)? 0 : 255);
+            globalMap.at <float> (r, c) = currVal;
+            liveMap.at <unsigned char> (r, c) = ((currVal < MinObstacleHeight)? 0 : 255);
         }
     }
 
