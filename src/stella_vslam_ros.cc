@@ -350,7 +350,7 @@ void rgbd::callback(const sensor_msgs::msg::Image::ConstSharedPtr& color, const 
         camera_optical_frame_ = color->header.frame_id;
     }
     auto colorcv = cv_bridge::toCvShare(color, encoding_)->image;
-    auto depthcv = cv_bridge::toCvShare(depth, encoding_)->image;
+    auto depthcv = cv_bridge::toCvShare(depth)->image;
     if (colorcv.empty() || depthcv.empty()) {
         return;
     }
