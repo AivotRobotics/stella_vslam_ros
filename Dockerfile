@@ -1,8 +1,8 @@
 FROM ros:humble
-ENV DEBIAN_FRONTEND noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 
 # install dependencies via apt
-ENV DEBCONF_NOWARNINGS yes
+ENV DEBCONF_NOWARNINGS=yes
 RUN set -x && \
   apt-get update -y -qq && \
   apt-get upgrade -y -qq --no-install-recommends && \
@@ -26,9 +26,10 @@ RUN set -x && \
     libglew-dev && \
   : "other dependencies" && \
   apt-get install -y -qq \
-    libyaml-cpp-dev \ 
+    libyaml-cpp-dev \
     libopencv-dev \
-    libeigen3-dev && \
+    libeigen3-dev \
+    libbackward-cpp-dev && \
   : "remove cache" && \
   apt-get autoremove -y -qq && \
   rm -rf /var/lib/apt/lists/*
@@ -42,8 +43,8 @@ ENV CPLUS_INCLUDE_PATH=${CMAKE_INSTALL_PREFIX}/include:${CPLUS_INCLUDE_PATH}
 ENV LIBRARY_PATH=${CMAKE_INSTALL_PREFIX}/lib:${LIBRARY_PATH}
 ENV LD_LIBRARY_PATH=${CMAKE_INSTALL_PREFIX}/lib:${LD_LIBRARY_PATH}
 
-ENV NVIDIA_VISIBLE_DEVICES ${NVIDIA_VISIBLE_DEVICES:-all}
-ENV NVIDIA_DRIVER_CAPABILITIES ${NVIDIA_DRIVER_CAPABILITIES:+$NVIDIA_DRIVER_CAPABILITIES,}graphics
+ENV NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-all}
+ENV NVIDIA_DRIVER_CAPABILITIES=${NVIDIA_DRIVER_CAPABILITIES:+$NVIDIA_DRIVER_CAPABILITIES,}graphics
 
 # Pangolin
 ARG PANGOLIN_COMMIT=ad8b5f83222291c51b4800d5a5873b0e90a0cf81
