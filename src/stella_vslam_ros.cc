@@ -331,8 +331,8 @@ rgbd::rgbd(const std::shared_ptr<stella_vslam::system>& slam,
            rclcpp::Node* node,
            const std::string& mask_img_path)
     : system(slam, node, mask_img_path),
-      color_sf_(node_, "camera/color/image_raw"),
-      depth_sf_(node_, "camera/depth/image_raw") {
+      color_sf_(node_, "camera/color/image_raw", custom_qos_),
+      depth_sf_(node_, "camera/depth/image_raw", custom_qos_) {
     use_exact_time_ = false;
     use_exact_time_ = node_->declare_parameter("use_exact_time", use_exact_time_);
     if (use_exact_time_) {
