@@ -145,19 +145,6 @@ public:
     bool use_exact_time_;
 };
 
-class realsense : public system {
-public:
-    realsense(const std::shared_ptr<stella_vslam::system>& slam,
-         rclcpp::Node* node,
-         const std::string& mask_img_path);
-    ~realsense() override;
-
-private:
-    void worker();
-
-    std::thread m_workerThd;
-};
-
 } // namespace stella_vslam_ros
 
 #endif // STELLA_SLAM_ROS_H

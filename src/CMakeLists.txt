@@ -59,7 +59,7 @@ foreach(EXECUTABLE_TARGET IN LISTS EXECUTABLE_TARGETS)
     target_include_directories(${EXECUTABLE_TARGET}
                                PRIVATE ${rclcpp_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS})
     target_link_libraries(${EXECUTABLE_TARGET}
-                          PRIVATE stella_vslam::stella_vslam ${rclcpp_LIBRARIES} ${OpenCV_LIBRARIES} ${realsense2_LIBRARY})
+                          PRIVATE stella_vslam::stella_vslam ${rclcpp_LIBRARIES} ${OpenCV_LIBRARIES})
     ament_target_dependencies(${EXECUTABLE_TARGET}
                               PUBLIC
                               rclcpp
@@ -75,8 +75,7 @@ foreach(EXECUTABLE_TARGET IN LISTS EXECUTABLE_TARGETS)
                               tf2_geometry_msgs
                               tf2_msgs
                               tf2_ros
-                              rosbag2_cpp
-                              realsense2)
+                              rosbag2_cpp)
     install(TARGETS ${EXECUTABLE_TARGET}
             DESTINATION lib/${PROJECT_NAME})
 

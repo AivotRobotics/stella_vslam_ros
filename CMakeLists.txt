@@ -128,7 +128,6 @@ find_package(tf2_geometry_msgs REQUIRED)
 find_package(tf2_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(rosbag2_cpp REQUIRED)
-find_package(realsense2 REQUIRED)
 # thread library
 find_package(Threads REQUIRED)
 
@@ -243,8 +242,8 @@ ament_target_dependencies(stella_vslam_ros_system
   tf2_eigen
   tf2_geometry_msgs
   tf2_msgs
-  tf2_ros
-  realsense2)
+  tf2_ros)
+
 target_link_libraries(stella_vslam_ros_system PRIVATE
   yaml-cpp
   stella_vslam::stella_vslam)
