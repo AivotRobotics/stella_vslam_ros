@@ -5,6 +5,15 @@ add_executable(run_slam run_slam.cc stella_vslam_ros.cc)
 add_executable(run_slam_offline run_slam_offline.cc stella_vslam_ros.cc)
 list(APPEND EXECUTABLE_TARGETS run_slam run_slam_offline)
 
+# config writer (one-shot generator)
+add_executable(config_writer config_writer.cc)
+target_link_libraries(config_writer PRIVATE yaml-cpp)
+ament_target_dependencies(config_writer
+  PUBLIC
+  rclcpp
+  sensor_msgs)
+install(TARGETS config_writer DESTINATION lib/${PROJECT_NAME})
+
 foreach(EXECUTABLE_TARGET IN LISTS EXECUTABLE_TARGETS)
     # pangolin_viewer is used on a priority basis
     if(pangolin_viewer_FOUND)
