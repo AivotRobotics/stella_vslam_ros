@@ -150,7 +150,7 @@ private:
 
     std::string out_path = output_path_;
     if (out_path.empty()) {
-      out_path = "/WorkingData/stella-slam/" + robot_name_ + "/stella_camnav_zed.yaml";
+      out_path = "/WorkingData/stella-slam/" + robot_name_ + "/stella_camnav.yaml";
     }
 
     std::filesystem::path outp(out_path);
